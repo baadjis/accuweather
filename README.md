@@ -11,5 +11,5 @@ $ wetboobs -a -b accuweather
  ##### exemple:daily forecast
   wetboobs> forecasts 623 daily
  ##### exemple:hourly forecast
-  forecasts 623 daily
+  wetboobs> forecasts 623 hourly
   
