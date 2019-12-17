@@ -7,7 +7,7 @@ $ wetboobs -a -b accuweather
 ## get current weather
  wetboobs> current <# or ID>
 ## forecast
- wetboobs> forecasts <# or ID> <freq>
+ wetboobs> forecasts <# or ID>  < freq >
  ##### exemple:daily forecast
   wetboobs> forecasts 623 daily
  ##### exemple:hourly forecast
