@@ -45,6 +45,24 @@ class ForecastsFormatter(IFormatter):
         if hasattr(obj, 'text') and obj.text:
             result += ' %s' % obj.text
         return result
+class ForecastsfFormatter(IFormatter):
+    MANDATORY_FIELDS = ('id', 'date', 'low', 'high')
+
+    temperature_display = staticmethod(lambda t: u'%s' % t.value)
+
+    def format_obj(self, obj, alias):
+        result = (
+            u'%s* %-15s%s (%s - %s)' % (
+                self.BOLD,
+                '%s:' % obj.date,
+                self.NC,
+                self.temperature_display(obj.low) if not empty(obj.low) else '?',
+                self.temperature_display(obj.high) if not empty(obj.high) else '?'
+            )
+        )
+        if hasattr(obj, 'text') and obj.text:
+            result += ' %s' % obj.text
+        return result
 
 
 class CurrentFormatter(IFormatter):
@@ -77,10 +95,12 @@ class WetBoobs(ReplApplication):
     EXTRA_FORMATTERS = {'cities':    CitiesFormatter,
                         'current':   CurrentFormatter,
                         'forecasts': ForecastsFormatter,
+                        'forecastsf': ForecastsfFormatter,
                        }
     COMMANDS_FORMATTERS = {'cities':    'cities',
                            'current':   'current',
                            'forecasts': 'forecasts',
+                           'forecastsf':'forecastsf',
                           }
 
     def main(self, argv):
@@ -137,8 +157,9 @@ class WetBoobs(ReplApplication):
         Get forecasts for specified city. Use the 'cities' command to find them.
         """
 
+        
+        city,= self.parse_command_args(line,1, 1)
 
-        city,freq= self.parse_command_args(line,2, 2)
 
         _id, backend_name = self.parse_id(city)
 
@@ -149,5 +170,31 @@ class WetBoobs(ReplApplication):
             self.formatter.temperature_display = lambda t: t.asfahrenheit()
         self.start_format()
 
-        for forecast in self.do('iter_forecast', _id,freq, backends=backend_name, caps=CapWeather):
+        for forecast in self.do('iter_forecast', _id, backends=backend_name, caps=CapWeather):
             self.format(forecast)
+
+    def complete_forecastsf(self, text, line, *ignored):
+        args = line.split(' ')
+        if len(args) == 2:
+            return self._complete_object()
+
+    def do_forecastsf(self, line):
+        """
+        forecastsf CITY_ID  FREQ
+
+        Get forecasts for specified city. Use the 'cities' command to find them.
+        """
+
+        city, freq = self.parse_command_args(line, 2, 1)
+
+        _id, backend_name = self.parse_id(city)
+
+        tr = self.config.get('settings', 'temperature_display', default='C')
+        if tr == 'C':
+            self.formatter.temperature_display = lambda t: t.ascelsius()
+        elif tr == 'F':
+            self.formatter.temperature_display = lambda t: t.asfahrenheit()
+        self.start_format()
+
+        for forecastf in self.do('iter_forecast_freq', _id,freq, backends=backend_name, caps=CapWeather):
+            self.format(forecastf)
