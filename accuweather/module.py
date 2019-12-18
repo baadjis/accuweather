@@ -44,8 +44,8 @@ class AccuweatherModule(Module, CapWeather):
         print(city_id)
         return self.browser.get_current(self.get_city(city_id))
 
-    def iter_forecast(self, city_id ,freq):
-        return self.browser.iter_forecast(self.get_city(city_id),freq)
+    def iter_forecast_freq(self, city_id ,freq):
+        return self.browser.iter_forecast_freq(self.get_city(city_id),freq)
 
     def iter_city_search(self,pattern):
         return self.browser.iter_city_search(pattern)
@@ -61,3 +61,4 @@ class AccuweatherModule(Module, CapWeather):
             return find_object(cities, id=_id, error=CityNotFound)
         except CityNotFound:
             return cities[0]
+
