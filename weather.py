@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright(C) 2010-2014  Romain Bignon
+# Copyright(C) 2010-2011 Romain Bignon
 #
 # This file is part of weboob.
 #
@@ -18,141 +18,204 @@
 # along with weboob. If not, see <http://www.gnu.org/licenses/>.
 
 
-from weboob.capabilities.base import empty
-from weboob.capabilities.weather import CapWeather
-from weboob.tools.application.repl import ReplApplication, defaultcount
-from weboob.tools.application.formatters.iformatter import IFormatter, PrettyFormatter
+from datetime import datetime, date
+
+from weboob.tools.compat import basestring, unicode
+
+from .base import Capability, BaseObject, Field, FloatField, \
+    StringField, IntField, UserError, NotLoaded, EnumField, Enum
+from .date import DateField
+
+__all__ = [
+    'Forecast', 'Forecastf','Current', 'City', 'CityNotFound', 'Temperature', 'CapWeather',
+    'BaseWeather', 'Direction', 'Precipitation',
+]
 
 
-__all__ = ['WetBoobs']
+class Direction(Enum):
+    S = 'South'
+    N = 'North'
+    E = 'East'
+    W = 'West'
+    SE = 'Southeast'
+    SW = 'Southwest'
+    NW = 'Northwest'
+    NE = 'Northeast'
+    SSE = 'South-Southeast'
+    SSW = 'South-Southwest'
+    NNW = 'North-Northwest'
+    NNE = 'North-Northeast'
+    ESE = 'East-Southeast'
+    ENE = 'East-Northeast'
+    WSW = 'West-Southwest'
+    WNW = 'West-Northwest'
 
 
-class ForecastsFormatter(IFormatter):
-    MANDATORY_FIELDS = ('id', 'date', 'low', 'high')
-
-    temperature_display = staticmethod(lambda t: u'%s' % t.value)
-
-    def format_obj(self, obj, alias):
-        result = (
-            u'%s* %-15s%s (%s - %s)' % (
-                self.BOLD,
-                '%s:' % obj.date,
-                self.NC,
-                self.temperature_display(obj.low) if not empty(obj.low) else '?',
-                self.temperature_display(obj.high) if not empty(obj.high) else '?'
-            )
-        )
-        if hasattr(obj, 'text') and obj.text:
-            result += ' %s' % obj.text
-        return result
+# METAR keys
+class Precipitation(Enum):
+    RA = 'Rain'
+    SN = 'Snow'
+    GR = 'Hail'
+    PL = 'Ice pellets'
+    GS = 'Small hail'
+    DZ = 'Drizzle'
+    IC = 'Ice cristals'
+    SG = 'Small grains'
+    UP = 'Unknown precipiation'
 
 
-class CurrentFormatter(IFormatter):
-    MANDATORY_FIELDS = ('id', 'date', 'temp')
+class Temperature(BaseObject):
+    value = FloatField('Temperature value')
+    unit = StringField('Input unit')
 
-    temperature_display = staticmethod(lambda t: u'%s' % t.value)
+    def __init__(self, value=NotLoaded, unit=u'', url=None):
+        super(Temperature, self).__init__(unicode(value), url)
+        self.value = value
+        if unit not in [u'C', u'F']:
+            unit = u''
+        self.unit = unit
 
-    def format_obj(self, obj, alias):
-        result = u'%s%s%s: %s' % (self.BOLD, obj.date, self.NC, self.temperature_display(obj.temp))
-        if hasattr(obj, 'text') and obj.text:
-            result += u' - %s' % obj.text
-        return result
-
-
-class CitiesFormatter(PrettyFormatter):
-    MANDATORY_FIELDS = ('id', 'name')
-
-    def get_title(self, obj):
-        return obj.name
-
-
-class WetBoobs(ReplApplication):
-    APPNAME = 'wetboobs'
-    VERSION = '1.6'
-    COPYRIGHT = 'Copyright(C) 2010-YEAR Romain Bignon'
-    DESCRIPTION = "Console application allowing to display weather and forecasts in your city."
-    SHORT_DESCRIPTION = "display weather and forecasts"
-    CAPS = CapWeather
-    DEFAULT_FORMATTER = 'table'
-    EXTRA_FORMATTERS = {'cities':    CitiesFormatter,
-                        'current':   CurrentFormatter,
-                        'forecasts': ForecastsFormatter,
-                       }
-    COMMANDS_FORMATTERS = {'cities':    'cities',
-                           'current':   'current',
-                           'forecasts': 'forecasts',
-                          }
-
-    def main(self, argv):
-        self.load_config()
-        return ReplApplication.main(self, argv)
-
-    @defaultcount(10)
-    def do_cities(self, pattern):
-        """
-        cities PATTERN
-
-        Search cities.
-        """
-        self.change_path(['cities'])
-        self.start_format()
-        for city in self.do('iter_city_search', pattern, caps=CapWeather):
-            self.cached_format(city)
-
-    def complete_current(self, text, line, *ignored):
-        args = line.split(' ')
-        if len(args) == 2:
-            return self._complete_object()
-
-    def do_current(self, line):
-        """
-        current CITY_ID
-
-        Get current weather for specified city. Use the 'cities' command to find them.
-        """
-        city, = self.parse_command_args(line, 1, 1)
-
-        _id, backend_name = self.parse_id(city)
-
-        tr = self.config.get('settings', 'temperature_display', default='C')
-        if tr == 'C':
-            self.formatter.temperature_display = lambda t: t.ascelsius()
-        elif tr == 'F':
-            self.formatter.temperature_display = lambda t: t.asfahrenheit()
-
-        self.start_format()
-        for current in self.do('get_current', _id, backends=backend_name, caps=CapWeather):
-            if current:
-                self.format(current)
-
-    def complete_forecasts(self, text, line, *ignored):
-        args = line.split(' ')
-        if len(args) == 2:
-            return self._complete_object()
-
-    def do_forecasts(self, line):
-        """
-        forecasts CITY_ID
-
-        Get forecasts for specified city. Use the 'cities' command to find them.
-        """
-
-        
-        city,freq = self.parse_command_args(line,2, 1)
-        print(freq)
-
-        _id, backend_name = self.parse_id(city)
-
-        tr = self.config.get('settings', 'temperature_display', default='C')
-        if tr == 'C':
-            self.formatter.temperature_display = lambda t: t.ascelsius()
-        elif tr == 'F':
-            self.formatter.temperature_display = lambda t: t.asfahrenheit()
-        self.start_format()
-        if freq:
-          for forecast in self.do('iter_forecast', _id,freq, backends=backend_name, caps=CapWeather):
-            self.format(forecast)
+    def asfahrenheit(self):
+        if not self.unit:
+            return u'%s' % int(round(self.value))
+        elif self.unit == 'F':
+            return u'%s °F' % int(round(self.value))
         else:
-            for forecast in self.do('iter_forecast', _id , backends=backend_name, caps=CapWeather):
-                self.format(forecast)
+            return u'%s °F' % int(round((self.value * 9.0 / 5.0) + 32))
+
+    def ascelsius(self):
+        if not self.unit:
+            return u'%s' % int(round(self.value))
+        elif self.unit == 'C':
+            return u'%s °C' % int(round(self.value))
+        else:
+            return u'%s °C' % int(round((self.value - 32.0) * 5.0 / 9.0))
+
+    def __repr__(self):
+        if self.value is not None and self.unit:
+            return '%r %r' % (self.value, self.unit)
+        return ''
+
+
+class BaseWeather(BaseObject):
+    precipitation = EnumField('Precipitation type', Precipitation)
+    precipitation_probability = FloatField('Probability of precipitation (ratio)')
+
+    wind_direction = EnumField('Wind direction', Direction)
+    wind_speed = FloatField('Wind speed (in km/h)')
+
+    humidity = FloatField('Relative humidity (ratio)')
+    pressure = FloatField('Atmospheric pressure (in hPa)')
+
+    visibility = FloatField('Horizontal visibility distance (in km)')
+    cloud = IntField('Cloud coverage (in okta (0-8))')
+
+
+class Forecast(BaseWeather):
+    """
+    Weather forecast.
+    """
+    date = Field('Date for the forecast', datetime, date, basestring)
+    low = Field('Low temperature', Temperature)
+    high = Field('High temperature', Temperature)
+    text = StringField('Comment on forecast')
+
+    def __init__(self, date=NotLoaded, low=None, high=None, text=None, unit=None, url=None):
+        super(Forecast, self).__init__(unicode(date), url)
+        self.date = date
+        self.low = Temperature(low, unit)
+        self.high = Temperature(high, unit)
+        self.text = text
+class Forecastf(BaseWeather):
+    """
+    Weather forecast given frequency.
+    """
+    date = Field('Date for the forecast', datetime, date, basestring)
+    low = Field('Low temperature', Temperature)
+    high = Field('High temperature', Temperature)
+    text = StringField('Comment on forecast')
+
+    def __init__(self, date=NotLoaded, low=None, high=None, text=None, unit=None, url=None):
+        super(Forecastf, self).__init__(unicode(date), url)
+        self.date = date
+        self.low = Temperature(low, unit)
+        self.high = Temperature(high, unit)
+        self.text = text
+
+class Current(BaseWeather):
+    """
+    Current weather.
+    """
+    date = DateField('Date of measure')
+    text = StringField('Comment about current weather')
+    temp = Field('Current temperature', Temperature)
+
+    def __init__(self, date=NotLoaded, temp=None, text=None, unit=None, url=None):
+        super(Current, self).__init__(unicode(date), url)
+        self.date = date
+        self.text = text
+        self.temp = Temperature(temp, unit)
+
+
+class City(BaseObject):
+    """
+    City where to find weather.
+    """
+    name = StringField('Name of city')
+
+    def __init__(self, id='', name=None, url=None):
+        super(City, self).__init__(id, url)
+        self.name = name
+
+
+class CityNotFound(UserError):
+    """
+    Raised when a city is not found.
+    """
+
+
+class CapWeather(Capability):
+    """
+    Capability for weather websites.
+    """
+
+    def iter_city_search(self, pattern):
+        """
+        Look for a city.
+
+        :param pattern: pattern to search
+        :type pattern: str
+        :rtype: iter[:class:`City`]
+        """
+        raise NotImplementedError()
+
+    def get_current(self, city_id):
+        """
+        Get current weather.
+
+        :param city_id: ID of the city
+        :rtype: :class:`Current`
+        """
+        raise NotImplementedError()
+
+    def iter_forecast(self, city_id):
+        """
+        Iter forecasts of a city.
+
+        :param city_id: ID of the city
+
+        :rtype: iter[:class:`Forecast`]
+        """
+        raise NotImplementedError()
+
+
+    def iter_forcast_freq(self,city_id,freq='daily'):
+        """
+        Iter forecasts of a city.
+
+        :param city_id: ID of the city
+        :param freq: frequence of forecast
+        :rtype: iter[:class:`Forecast`]
+        """
+        raise NotImplementedError()
 
