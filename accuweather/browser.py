@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 
 from weboob.browser import PagesBrowser, URL
 
-from .pages import SearchPage, WeatherPage, CitiesPage, ForecastPage
+from .pages import  WeatherPage, CitiesPage, ForecastPage
 
 
 class AccuweatherBrowser(PagesBrowser):
@@ -36,13 +36,10 @@ class AccuweatherBrowser(PagesBrowser):
         self.city_name=pattern
         return self.cities.go(params=params).iter_cities()
 
-    def iter_forecast(self, city,freq,day=''):
-        if day!='':
-         params = {'day':day}
-         self.forecast.go(country=city.country,lang='fr',pattern=city.id,freq=freq, pattern2=city.id,cityname= city.name,params=params)
-        else:
-            self.forecast.go(country=city.country, lang='fr', pattern=city.id, freq=freq, pattern2=city.id,
-                             cityname=city.name)
+    def iter_forecast_freq(self, city,freq):
+
+        self.forecast.go(country=city.country,lang='fr',pattern=city.id,freq=freq, pattern2=city.id,cityname= city.name)
+
         return self.page.daily_forecast() if (freq=='daily') else(self.page.hourly_forecast() if (freq=='hourly') else '')
 
     def get_current(self, city):
